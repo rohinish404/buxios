@@ -1,5 +1,5 @@
 # Buxios notes
 
-[v] Config merging
-[x] Timeout
-[x] Interceptors
+- [x] Config merging
+- [ ] Timeout
+- [ ] Interceptors
