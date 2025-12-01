@@ -5,14 +5,30 @@ import type {
 } from "./types";
 
 class Buxios {
-  config: BuxiosRequestConfig;
+  config: BuxiosRequestConfig = {
+    headers: {
+      "Content-Type": "application/json",
+    },
+  };
   constructor(config: BuxiosRequestConfig) {
-    this.config = config;
+    this.config = this.mergeConfig(config);
   }
-  async get<T>(url: string): Promise<BuxiosResponse<T>> {
-    throw new Error("not implemented");
+  async get<T>(url: string, config?: BuxiosRequestConfig) {
+    const finalConfig = this.mergeConfig(config);
+    return fetch(`${this.config.baseURL}${url}`, finalConfig);
+  }
+
+  mergeConfig(config?: BuxiosRequestConfig) {
+    return {
+      ...this.config,
+      ...config,
+      headers: {
+        ...(this.config.headers || {}),
+        ...(config?.headers || {}),
+      },
+    };
   }
 }
-export async function create(config: BuxiosRequestConfig) {
+export function create(config: BuxiosRequestConfig) {
   return new Buxios(config);
 }

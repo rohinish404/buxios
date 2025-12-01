@@ -1,9 +1,9 @@
 import buxios from "@/index.ts";
 
 const api = buxios.create({
-  baseURL: "http://localhost:3000",
+  baseURL: "https://dummyjson.com/",
   timeout: 1000,
-  headers: { "X-Custom-Header": "foobar" },
+  headers: { "Content-Type": "application/json" },
 });
 
 async function main() {
@@ -11,3 +11,4 @@ async function main() {
   const data = await response.json();
   console.log(data);
 }
+main();
