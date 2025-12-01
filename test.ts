@@ -7,7 +7,9 @@ const api = buxios.create({
 });
 
 async function main() {
-  const response = await api.get("/todos");
+  const response = await api.get("/todos", {
+    timeout: 5,
+  });
   const data = await response.json();
   console.log(data);
 }

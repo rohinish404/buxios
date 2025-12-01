@@ -23,3 +23,13 @@ export interface BuxiosInstance {
     config?: BuxiosRequestConfig,
   ): Promise<BuxiosResponse<T>>;
 }
+
+export interface InternalRequestConfig extends BuxiosRequestConfig {
+  method?: "GET" | "POST";
+  body?: any;
+}
+
+export interface DispatchRequestParams {
+  url: string;
+  config?: InternalRequestConfig;
+}
