@@ -3,6 +3,7 @@ import type {
   BuxiosRequestConfig,
   BuxiosResponse,
   DispatchRequestParams,
+  InternalRequestConfig,
 } from "./types";
 
 class Buxios {
@@ -12,8 +13,45 @@ class Buxios {
       "Content-Type": "application/json",
     },
   };
+
+  requestInterceptors = [];
+  responseInterceptors = [];
   constructor(config: BuxiosRequestConfig) {
     this.config = this.mergeConfig(config);
+  }
+
+  async request({ url, config }: DispatchRequestParams) {
+    const finalConfig = this.mergeConfig(config);
+
+    const chain = [
+      ...this.requestInterceptors,
+      { successFn: this.dispatchRequest.bind(this) },
+      ...this.responseInterceptors,
+    ];
+
+    let promise = Promise.resolve({ url, config: finalConfig });
+
+    for (const { successFn, failFn } of chain) {
+      promise = promise.then(
+        (res) => {
+          try {
+            return successFn(res);
+          } catch (err) {
+            if (failFn) {
+              return failFn(err);
+            }
+            return Promise.reject(err);
+          }
+        },
+        (err) => {
+          if (failFn) {
+            return failFn(err);
+          }
+          return Promise.reject(err);
+        },
+      );
+    }
+    return promise;
   }
 
   private async dispatchRequest({ url, config }: DispatchRequestParams) {
@@ -36,7 +74,7 @@ class Buxios {
     }
   }
   async get<T>(url: string, config?: BuxiosRequestConfig) {
-    return this.dispatchRequest({ url, config: { ...config, method: "GET" } });
+    return this.request({ url, config: { ...config, method: "GET" } });
   }
 
   mergeConfig(config?: BuxiosRequestConfig) {
@@ -48,6 +86,12 @@ class Buxios {
         ...(config?.headers || {}),
       },
     };
+  }
+  addRequestInterceptors(successFn, failFn) {
+    this.requestInterceptors.push({ successFn, failFn });
+  }
+  addResponseInterceptors(successFn, failFn) {
+    this.responseInterceptors.push({ successFn, failFn });
   }
 }
 export function create(config: BuxiosRequestConfig) {
