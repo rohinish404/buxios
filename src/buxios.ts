@@ -23,7 +23,9 @@ class Buxios {
     this.config = this.mergeConfig(config);
   }
 
-  async request<T = any>(config: BuxiosRequestConfig): Promise<BuxiosResponse<T>> {
+  async request<T = any>(
+    config: BuxiosRequestConfig,
+  ): Promise<BuxiosResponse<T>> {
     const finalConfig = this.mergeConfig(config);
 
     let requestPromise = Promise.resolve(finalConfig);
@@ -106,7 +108,7 @@ class Buxios {
     response: Response,
     config: BuxiosRequestConfig,
   ): Promise<BuxiosResponse<T>> {
-    const data = await response.json() as T;
+    const data = (await response.json()) as T;
     return {
       data,
       status: response.status,
