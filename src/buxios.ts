@@ -2,8 +2,11 @@ import type {
   BuxiosInstance,
   BuxiosRequestConfig,
   BuxiosResponse,
-  DispatchRequestParams,
-  InternalRequestConfig,
+  InterceptorFailFn,
+  RequestInterceptorSuccessFn,
+  ResponseInterceptorSuccessFn,
+  RequestInterceptor,
+  ResponseInterceptor,
 } from "./types";
 
 class Buxios {
@@ -14,70 +17,69 @@ class Buxios {
     },
   };
 
-  requestInterceptors = [];
-  responseInterceptors = [];
+  requestInterceptors: RequestInterceptor[] = [];
+  responseInterceptors: ResponseInterceptor[] = [];
   constructor(config: BuxiosRequestConfig) {
     this.config = this.mergeConfig(config);
   }
 
-  async request({ url, config }: DispatchRequestParams) {
+  async request<T = any>(config: BuxiosRequestConfig): Promise<BuxiosResponse<T>> {
     const finalConfig = this.mergeConfig(config);
 
-    const chain = [
-      ...this.requestInterceptors,
-      { successFn: this.dispatchRequest.bind(this) },
-      ...this.responseInterceptors,
-    ];
+    let requestPromise = Promise.resolve(finalConfig);
 
-    let promise = Promise.resolve({ url, config: finalConfig });
-
-    for (const { successFn, failFn } of chain) {
-      promise = promise.then(
-        (res) => {
-          try {
-            return successFn(res);
-          } catch (err) {
-            if (failFn) {
-              return failFn(err);
-            }
-            return Promise.reject(err);
-          }
-        },
-        (err) => {
-          if (failFn) {
-            return failFn(err);
-          }
-          return Promise.reject(err);
-        },
+    for (const { successFn, failFn } of this.requestInterceptors) {
+      requestPromise = requestPromise.then(
+        successFn,
+        failFn || ((err) => Promise.reject(err)),
       );
     }
-    return promise;
+
+    let responsePromise = requestPromise.then(this.dispatchRequest.bind(this));
+
+    for (const { successFn, failFn } of this.responseInterceptors) {
+      responsePromise = responsePromise.then(
+        successFn as any,
+        failFn || ((err) => Promise.reject(err)),
+      );
+    }
+
+    return responsePromise as Promise<BuxiosResponse<T>>;
   }
 
-  private async dispatchRequest({ url, config }: DispatchRequestParams) {
+  private async dispatchRequest(config: BuxiosRequestConfig) {
     const finalConfig = this.mergeConfig(config);
     const timeout = finalConfig.timeout || 0;
     const abortController = new AbortController();
-    let timeoutId;
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
     if (timeout) {
       timeoutId = setTimeout(() => abortController.abort(), timeout);
     }
 
     try {
-      const response = await fetch(`${this.config.baseURL}${url}`, {
-        ...finalConfig,
+      const response = await fetch(`${finalConfig.baseURL}${finalConfig.url}`, {
+        method: finalConfig.method || "GET",
+        headers: finalConfig.headers,
+        body: finalConfig.data ? JSON.stringify(finalConfig.data) : undefined,
         signal: abortController.signal,
       });
-      return response;
+      return this.transformResponse(response, finalConfig);
     } finally {
       if (timeoutId) clearTimeout(timeoutId);
     }
   }
-  async get<T>(url: string, config?: BuxiosRequestConfig) {
-    return this.request({ url, config: { ...config, method: "GET" } });
+  async get<T>(
+    url: string,
+    config?: BuxiosRequestConfig,
+  ): Promise<BuxiosResponse<T>> {
+    return this.request({
+      ...config,
+      url,
+      method: "GET",
+    });
   }
 
-  mergeConfig(config?: BuxiosRequestConfig) {
+  mergeConfig(config?: BuxiosRequestConfig): BuxiosRequestConfig {
     return {
       ...this.config,
       ...config,
@@ -87,11 +89,31 @@ class Buxios {
       },
     };
   }
-  addRequestInterceptors(successFn, failFn) {
+  addRequestInterceptors(
+    successFn: RequestInterceptorSuccessFn,
+    failFn?: InterceptorFailFn,
+  ) {
     this.requestInterceptors.push({ successFn, failFn });
   }
-  addResponseInterceptors(successFn, failFn) {
+  addResponseInterceptors(
+    successFn: ResponseInterceptorSuccessFn,
+    failFn?: InterceptorFailFn,
+  ) {
     this.responseInterceptors.push({ successFn, failFn });
+  }
+
+  private async transformResponse<T>(
+    response: Response,
+    config: BuxiosRequestConfig,
+  ): Promise<BuxiosResponse<T>> {
+    const data = await response.json() as T;
+    return {
+      data,
+      status: response.status,
+      statusText: response.statusText,
+      headers: response.headers,
+      config,
+    };
   }
 }
 export function create(config: BuxiosRequestConfig) {

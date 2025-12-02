@@ -1,4 +1,7 @@
 export interface BuxiosRequestConfig {
+  url?: string;
+  method?: string;
+  data?: any;
   baseURL?: string;
   timeout?: number;
   headers?: Record<string, string>;
@@ -24,12 +27,22 @@ export interface BuxiosInstance {
   ): Promise<BuxiosResponse<T>>;
 }
 
-export interface InternalRequestConfig extends BuxiosRequestConfig {
-  method?: "GET" | "POST";
-  body?: any;
+export type RequestInterceptorSuccessFn = (
+  config: BuxiosRequestConfig,
+) => BuxiosRequestConfig | Promise<BuxiosRequestConfig>;
+
+export type ResponseInterceptorSuccessFn<T = any> = (
+  value: BuxiosResponse<T>,
+) => BuxiosResponse<T> | Promise<BuxiosResponse<T>>;
+
+export type InterceptorFailFn<T = any> = (error: any) => T | Promise<T>;
+
+export interface RequestInterceptor {
+  successFn: RequestInterceptorSuccessFn;
+  failFn?: InterceptorFailFn<BuxiosRequestConfig>;
 }
 
-export interface DispatchRequestParams {
-  url: string;
-  config?: InternalRequestConfig;
+export interface ResponseInterceptor<T = any> {
+  successFn: ResponseInterceptorSuccessFn<T>;
+  failFn?: InterceptorFailFn<BuxiosResponse<T>>;
 }

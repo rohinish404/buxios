@@ -28,7 +28,6 @@ api.addResponseInterceptors(
 
 async function main() {
   const response = await api.get("/todos");
-  const data = await response.json();
-  console.log(data);
+  console.log(response);
 }
 main();
